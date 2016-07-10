@@ -35,6 +35,8 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, rand_h=None,
     """
     Compute compact bilinear pooling over two bottom inputs. Reference:
 
+    Yang Gao, et al. "Compact Bilinear Pooling." in Proceedings of IEEE
+    Conference on Computer Vision and Pattern Recognition (2016).
     Akira Fukui, et al. "Multimodal Compact Bilinear Pooling for Visual Question
     Answering and Visual Grounding." arXiv preprint arXiv:1606.01847 (2016).
 
