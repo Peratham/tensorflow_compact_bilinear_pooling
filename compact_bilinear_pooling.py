@@ -14,7 +14,7 @@ def _generate_sketch_matrix(rand_h, rand_s, output_dim):
         output_dim: the output dimensions of compact bilinear pooling.
 
     Returns:
-        a sparse matrix of `[input_dim, output_dim]` for tensor sketch.
+        a sparse matrix of shape [input_dim, output_dim] for tensor sketch.
     """
 
     # Generate a sparse matrix for tensor count sketch
@@ -30,7 +30,7 @@ def _generate_sketch_matrix(rand_h, rand_s, output_dim):
         tf.SparseTensor(indices, rand_s, [input_dim, output_dim]))
     return sparse_sketch_matrix
 
-def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
+def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
     rand_h_1=None, rand_s_1=None, rand_h_2=None, rand_s_2=None,
     seed_h_1=1, seed_s_1=3, seed_h_2=5, seed_s_2=7):
     """
@@ -42,10 +42,15 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
     Answering and Visual Grounding." arXiv preprint arXiv:1606.01847 (2016).
 
     Args:
-        bottom1: 1st input, a 2D Tensor of shape [batch_size, input_dim1].
-        bottom2: 2nd input, a 2D Tensor of shape [batch_size, input_dim2].
+        bottom1: 1st input, 4D Tensor of shape [batch_size, height, width, input_dim1].
+        bottom2: 2nd input, 4D Tensor of shape [batch_size, height, width, input_dim2].
 
         output_dim: output dimension for compact bilinear pooling.
+
+        sum_pool: If True, sum the output along height and width dimensions and
+                  return output shape [batch_size, output_dim]. Otherwise return
+                  output shape [batch_size, height, width, output_dim].
+                  Default: True.
 
         rand_h_1: (Optional) an 1D numpy array containing indices in interval
                   `[0, output_dim)`. Automatically generated from `seed_h_1`
@@ -61,7 +66,8 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
                   None.
 
     Returns:
-        Compact bilinear pooled results `[batch_size, output_dim]`.
+        Compact bilinear pooled results of shape [batch_size, output_dim] or
+        [batch_size, height, width, output_dim], depending on `sum_pool`.
     """
 
     # Static shapes are needed to construction count sketch matrix
@@ -87,8 +93,8 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
     sparse_sketch_matrix2 = _generate_sketch_matrix(rand_h_2, rand_s_2, output_dim)
 
     # Step 1: Flatten the input tensors and count sketch
-    bottom1 = tf.reshape(bottom1, [-1, input_dim1])
-    bottom2 = tf.reshape(bottom2, [-1, input_dim2])
+    bottom1_flat = tf.reshape(bottom1, [-1, input_dim1])
+    bottom2_flat = tf.reshape(bottom2, [-1, input_dim2])
     # Essentially:
     #   sketch1 = bottom1 * sparse_sketch_matrix
     #   sketch2 = bottom2 * sparse_sketch_matrix
@@ -96,9 +102,9 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
     #   sketch1 = (sparse_sketch_matrix.T * bottom1.T).T
     #   sketch2 = (sparse_sketch_matrix.T * bottom2.T).T
     sketch1 = tf.transpose(tf.sparse_tensor_dense_matmul(sparse_sketch_matrix1,
-        bottom1, adjoint_a=True, adjoint_b=True))
+        bottom1_flat, adjoint_a=True, adjoint_b=True))
     sketch2 = tf.transpose(tf.sparse_tensor_dense_matmul(sparse_sketch_matrix2,
-        bottom2, adjoint_a=True, adjoint_b=True))
+        bottom2_flat, adjoint_a=True, adjoint_b=True))
 
     # Step 2: FFT
     fft1 = tf.batch_fft(tf.complex(real=sketch1, imag=tf.zeros_like(sketch1)))
@@ -108,6 +114,14 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim,
     fft_product = tf.mul(fft1, fft2)
 
     # Step 4: Inverse FFT and reshape back
-    cbp = tf.real(tf.batch_ifft(fft_product))
+    # Compute output shape dynamically: [batch_size, height, width, output_dim]
+    cbp_flat = tf.real(tf.batch_ifft(fft_product))
+    output_shape = tf.add(tf.mul(tf.shape(bottom1), [1, 1, 1, 0]),
+                          [0, 0, 0, output_dim])
+    cbp = tf.reshape(cbp_flat, output_shape)
+
+    # Step 5: Sum pool over spatial dimensions, if specified
+    if sum_pool:
+        cbp = tf.reduce_sum(cbp, reduction_indices=[1, 2])
 
     return cbp
