@@ -47,9 +47,9 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
 
         output_dim: output dimension for compact bilinear pooling.
 
-        sum_pool: If True, sum the output along height and width dimensions and
-                  return output shape [batch_size, output_dim]. Otherwise return
-                  output shape [batch_size, height, width, output_dim].
+        sum_pool: (Optional) If True, sum the output along height and width
+                  dimensions and return output shape [batch_size, output_dim].
+                  Otherwise return [batch_size, height, width, output_dim].
                   Default: True.
 
         rand_h_1: (Optional) an 1D numpy array containing indices in interval
@@ -82,14 +82,14 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
         rand_h_1 = np.random.randint(output_dim, size=input_dim1)
     if rand_s_1 is None:
         np.random.seed(seed_s_1)
-        rand_s_1 = 2*np.random.randint(2, size=input_dim) - 1
+        rand_s_1 = 2*np.random.randint(2, size=input_dim1) - 1
     sparse_sketch_matrix1 = _generate_sketch_matrix(rand_h_1, rand_s_1, output_dim)
     if rand_h_2 is None:
         np.random.seed(seed_h_2)
         rand_h_2 = np.random.randint(output_dim, size=input_dim2)
     if rand_s_2 is None:
         np.random.seed(seed_s_2)
-        rand_s_2 = 2*np.random.randint(2, size=input_dim) - 1
+        rand_s_2 = 2*np.random.randint(2, size=input_dim2) - 1
     sparse_sketch_matrix2 = _generate_sketch_matrix(rand_h_2, rand_s_2, output_dim)
 
     # Step 1: Flatten the input tensors and count sketch
