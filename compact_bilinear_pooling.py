@@ -79,14 +79,14 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
     # operation
     if rand_h_1 is None:
         np.random.seed(seed_h_1)
-        rand_h_1 = np.random.randint(output_dim, size=input_dim)
+        rand_h_1 = np.random.randint(output_dim, size=input_dim1)
     if rand_s_1 is None:
         np.random.seed(seed_s_1)
         rand_s_1 = 2*np.random.randint(2, size=input_dim) - 1
     sparse_sketch_matrix1 = _generate_sketch_matrix(rand_h_1, rand_s_1, output_dim)
     if rand_h_2 is None:
         np.random.seed(seed_h_2)
-        rand_h_2 = np.random.randint(output_dim, size=input_dim)
+        rand_h_2 = np.random.randint(output_dim, size=input_dim2)
     if rand_s_2 is None:
         np.random.seed(seed_s_2)
         rand_s_2 = 2*np.random.randint(2, size=input_dim) - 1
