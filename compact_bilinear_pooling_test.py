@@ -1,26 +1,76 @@
+from __future__ import absolute_import, division, print_function
+
+import numpy as np
+import tensorflow as tf
 from compact_bilinear_pooling import compact_bilinear_pooling_layer
 
-import tensorflow as tf
-import numpy as np
+def bp(bottom1, bottom2, sum_pool=True):
+    assert(np.all(bottom1.shape[:3] == bottom2.shape[:3]))
+    batch_size, height, width = bottom1.shape[:3]
+    output_dim = bottom1.shape[-1] * bottom2.shape[-1]
 
-def _bilinear_pooling(bottom1, bottom2):
-    bottom1 = np.reshape((-1, bottom1.shape[-1]))
-    bottom2 = np.reshape((-1, bottom2.shape[-1]))
+    bottom1_flat = bottom1.reshape((-1, bottom1.shape[-1]))
+    bottom2_flat = bottom2.reshape((-1, bottom2.shape[-1]))
 
-batch_size = 100
-height = 1
-width = 1
-input_dim = 2048
+    output = np.empty((batch_size*height*width, output_dim), np.float32)
+    for n in xrange(len(output)):
+        output[n, ...] = np.outer(bottom1_flat[n], bottom2_flat[n]).reshape(-1)
+    output = output.reshape((batch_size, height, width, output_dim))
+
+    if sum_pool:
+        output = np.sum(output, axis=(1, 2))
+    return output
+
+# Input and output tensors
+# Input channels need to be specified for shape inference
+input_dim1 = 2048
+input_dim2 = 2048
 output_dim = 16000
+bottom1 = tf.placeholder(tf.float32, [None, None, None, input_dim1])
+bottom2 = tf.placeholder(tf.float32, [None, None, None, input_dim2])
+top = compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True)
+def cbp(bottom1_value, bottom2_value):
+    sess = tf.get_default_session()
+    return sess.run(top, feed_dict={bottom1: bottom1_value,
+                                    bottom2: bottom2_value})
 
-bottom1 = tf.convert_to_tensor(np.random.randn(batch_size, height, width,
-    input_dim), dtype=tf.float32)
-bottom2 = tf.convert_to_tensor(np.random.randn(batch_size, height, width,
-    input_dim), dtype=tf.float32)
-top = compact_bilinear_pooling_layer(bottom1, bottom2, output_dim)
+def run_kernel_approximation_test(batch_size, height, width):
+    # Input values
+    x = np.random.rand(batch_size, height, width, input_dim1).astype(np.float32)
+    y = np.random.rand(batch_size, height, width, input_dim2).astype(np.float32)
 
-sess = tf.InteractiveSession()
-cbp = sess.run(top)
-sess.close()
+    z = np.random.rand(batch_size, height, width, input_dim1).astype(np.float32)
+    w = np.random.rand(batch_size, height, width, input_dim2).astype(np.float32)
 
-print(cbp.shape)
+    # Compact Bilinear Pooling results
+    cbp_xy = cbp(x, y)
+    cbp_zw = cbp(z, w)
+
+    # (Original) Bilinear Pooling results
+    bp_xy = bp(x, y)
+    bp_zw = bp(z, w)
+
+    # Check the kernel results of Compact Bilinear Pooling
+    # against Bilinear Pooling
+    cbp_kernel = np.sum(cbp_xy*cbp_zw, axis=1)
+    bp_kernel = np.sum(bp_xy*bp_zw, axis=1)
+
+    print("ratio between Compact Bilinear Pooling kernel and (original) Bilinear Pooling kernel:")
+    print(cbp_kernel / bp_kernel)
+
+def run_large_input_test(batch_size, height, width):
+    # Input values
+    x = np.random.rand(batch_size, height, width, input_dim1).astype(np.float32)
+    y = np.random.rand(batch_size, height, width, input_dim2).astype(np.float32)
+
+    # Compact Bilinear Pooling results
+    cbp_xy = cbp(x, y)
+
+def main():
+    sess = tf.InteractiveSession()
+    run_kernel_approximation_test(batch_size=2, height=3, width=4)
+    run_large_input_test(batch_size=16, height=14, width=14)
+    sess.close()
+
+if __name__ == '__main__':
+    main()
