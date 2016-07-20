@@ -23,9 +23,9 @@ def _SequentialBatchIFFTShape(op):
 @ops.RegisterGradient("SequentialBatchFFT")
 def _SequentialBatchFFTGrad(_, grad):
     size = tf.cast(tf.shape(grad)[1], tf.float32)
-    return sequential_batch_ifft(grad) * math_ops.complex(size, 0.)
+    return sequential_batch_ifft(grad) * tf.complex(size, 0.)
 
 @ops.RegisterGradient("SequentialBatchIFFT")
 def _SequentialBatchIFFTGrad(_, grad):
     rsize = 1. / tf.cast(tf.shape(grad)[1], tf.float32)
-    return sequential_batch_fft(grad) * math_ops.complex(rsize, 0.)
+    return sequential_batch_fft(grad) * tf.complex(rsize, 0.)
