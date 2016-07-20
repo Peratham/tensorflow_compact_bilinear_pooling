@@ -34,7 +34,7 @@ def cbp(bottom1_value, bottom2_value):
     return sess.run(top, feed_dict={bottom1: bottom1_value,
                                     bottom2: bottom2_value})
 
-def run_kernel_approximation_test(batch_size, height, width):
+def test_kernel_approximation(batch_size, height, width):
     # Input values
     x = np.random.rand(batch_size, height, width, input_dim1).astype(np.float32)
     y = np.random.rand(batch_size, height, width, input_dim2).astype(np.float32)
@@ -54,11 +54,13 @@ def run_kernel_approximation_test(batch_size, height, width):
     # against Bilinear Pooling
     cbp_kernel = np.sum(cbp_xy*cbp_zw, axis=1)
     bp_kernel = np.sum(bp_xy*bp_zw, axis=1)
-
+    ratio = cbp_kernel / bp_kernel
     print("ratio between Compact Bilinear Pooling kernel and (original) Bilinear Pooling kernel:")
-    print(cbp_kernel / bp_kernel)
+    print(ratio)
+    assert(np.all(np.abs(ratio - 1) < 2e-2))
+    print("Test kernel approximation passed.")
 
-def run_large_input_test(batch_size, height, width):
+def test_large_input(batch_size, height, width):
     # Input values
     x = np.random.rand(batch_size, height, width, input_dim1).astype(np.float32)
     y = np.random.rand(batch_size, height, width, input_dim2).astype(np.float32)
@@ -66,10 +68,13 @@ def run_large_input_test(batch_size, height, width):
     # Compact Bilinear Pooling results
     cbp_xy = cbp(x, y)
 
+    # Test passes iff no exception occurs.
+    print("Test large input passed.")
+
 def main():
     sess = tf.InteractiveSession()
-    run_kernel_approximation_test(batch_size=2, height=3, width=4)
-    run_large_input_test(batch_size=16, height=14, width=14)
+    test_kernel_approximation(batch_size=2, height=3, width=4)
+    test_large_input(batch_size=64, height=14, width=14)
     sess.close()
 
 if __name__ == '__main__':
