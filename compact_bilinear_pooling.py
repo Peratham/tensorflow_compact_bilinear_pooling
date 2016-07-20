@@ -3,6 +3,20 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import tensorflow as tf
 
+from sequential_fft import sequential_batch_fft, sequential_batch_ifft
+
+def _fft(bottom, sequential, compute_size):
+    if sequential:
+        return sequential_batch_fft(bottom, compute_size)
+    else:
+        return tf.batch_fft(bottom)
+
+def _ifft(bottom, sequential, compute_size):
+    if sequential:
+        return sequential_batch_ifft(bottom, compute_size)
+    else:
+        return tf.batch_ifft(bottom)
+
 def _generate_sketch_matrix(rand_h, rand_s, output_dim):
     """
     Return a sparse matrix used for tensor sketch operation in compact bilinear
@@ -32,7 +46,8 @@ def _generate_sketch_matrix(rand_h, rand_s, output_dim):
 
 def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
     rand_h_1=None, rand_s_1=None, rand_h_2=None, rand_s_2=None,
-    seed_h_1=1, seed_s_1=3, seed_h_2=5, seed_s_2=7):
+    seed_h_1=1, seed_s_1=3, seed_h_2=5, seed_s_2=7, sequential=True,
+    compute_size=128):
     """
     Compute compact bilinear pooling over two bottom inputs. Reference:
 
@@ -64,6 +79,16 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
         rand_s_2: (Optional) an 1D numpy array of 1 and -1, having the same shape
                   as `rand_h_2`. Automatically generated from `seed_s_2` if is
                   None.
+
+        sequential: (Optional) if True, use the sequential FFT and IFFT
+                    instead of tf.batch_fft or tf.batch_ifft to avoid
+                    out-of-memory error.
+                    Default: True.
+        compute_size: (Optional) The maximum size of sub-batch to be forwarded
+                      through FFT or IFFT in one time. Large compute_size may
+                      be faster but can cause OOM and FFT failure. This
+                      parameter is only effective when sequential == True.
+                      Default: 128.
 
     Returns:
         Compact bilinear pooled results of shape [batch_size, output_dim] or
@@ -107,15 +132,17 @@ def compact_bilinear_pooling_layer(bottom1, bottom2, output_dim, sum_pool=True,
         bottom2_flat, adjoint_a=True, adjoint_b=True))
 
     # Step 2: FFT
-    fft1 = tf.batch_fft(tf.complex(real=sketch1, imag=tf.zeros_like(sketch1)))
-    fft2 = tf.batch_fft(tf.complex(real=sketch2, imag=tf.zeros_like(sketch2)))
+    fft1 = _fft(tf.complex(real=sketch1, imag=tf.zeros_like(sketch1)),
+                sequential, compute_size)
+    fft2 = _fft(tf.complex(real=sketch2, imag=tf.zeros_like(sketch2)),
+                sequential, compute_size)
 
     # Step 3: Elementwise product
     fft_product = tf.mul(fft1, fft2)
 
     # Step 4: Inverse FFT and reshape back
     # Compute output shape dynamically: [batch_size, height, width, output_dim]
-    cbp_flat = tf.real(tf.batch_ifft(fft_product))
+    cbp_flat = tf.real(_ifft(fft_product, sequential, compute_size))
     output_shape = tf.add(tf.mul(tf.shape(bottom1), [1, 1, 1, 0]),
                           [0, 0, 0, output_dim])
     cbp = tf.reshape(cbp_flat, output_shape)
