@@ -24,14 +24,18 @@ def _SequentialBatchIFFTShape(op):
 def _SequentialBatchFFTGrad(_, grad):
     if (grad.dtype == tf.complex64):
         size = tf.cast(tf.shape(grad)[1], tf.float32)
+        return sequential_batch_ifft(grad) * tf.complex(size, 0.)
     else:
         size = tf.cast(tf.shape(grad)[1], tf.float64)
-    return sequential_batch_ifft(grad) * tf.complex(size, 0.)
+        return sequential_batch_ifft(grad) * tf.complex(size,
+                                                        tf.zeros([], tf.float64))
 
 @ops.RegisterGradient("SequentialBatchIFFT")
 def _SequentialBatchIFFTGrad(_, grad):
     if (grad.dtype == tf.complex64):
         rsize = 1. / tf.cast(tf.shape(grad)[1], tf.float32)
+        return sequential_batch_fft(grad) * tf.complex(rsize, 0.)
     else:
         rsize = 1. / tf.cast(tf.shape(grad)[1], tf.float64)
-    return sequential_batch_fft(grad) * tf.complex(rsize, 0.)
+        return sequential_batch_fft(grad) * tf.complex(rsize,
+                                                       tf.zeros([], tf.float64))
