@@ -22,23 +22,22 @@ def _SequentialBatchIFFTShape(op):
 
 @ops.RegisterGradient("SequentialBatchFFT")
 def _SequentialBatchFFTGrad(op, grad):
-    print(op)
     if (grad.dtype == tf.complex64):
         size = tf.cast(tf.shape(grad)[1], tf.float32)
-        return (sequential_batch_ifft(grad, op.attr("compute_size")) *
-            tf.complex(size, 0.))
+        return (sequential_batch_ifft(grad, op.get_attr("compute_size"))
+            * tf.complex(size, 0.))
     else:
         size = tf.cast(tf.shape(grad)[1], tf.float64)
-        return (sequential_batch_ifft(grad, op.attr("compute_size")) *
-            tf.complex(size, tf.zeros([], tf.float64)))
+        return (sequential_batch_ifft(grad, op.get_attr("compute_size"))
+            * tf.complex(size, tf.zeros([], tf.float64)))
 
 @ops.RegisterGradient("SequentialBatchIFFT")
 def _SequentialBatchIFFTGrad(op, grad):
     if (grad.dtype == tf.complex64):
         rsize = 1. / tf.cast(tf.shape(grad)[1], tf.float32)
-        return (sequential_batch_fft(grad, op.get_attr("compute_size")) *
-            tf.complex(rsize, 0.))
+        return (sequential_batch_fft(grad, op.get_attr("compute_size"))
+            * tf.complex(rsize, 0.))
     else:
         rsize = 1. / tf.cast(tf.shape(grad)[1], tf.float64)
-        return (sequential_batch_fft(grad, op.get_attr("compute_size")) *
-            tf.complex(rsize, tf.zeros([], tf.float64)))
+        return (sequential_batch_fft(grad, op.get_attr("compute_size"))
+            * tf.complex(rsize, tf.zeros([], tf.float64)))
