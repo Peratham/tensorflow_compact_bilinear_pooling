@@ -25,11 +25,11 @@ def _SequentialBatchFFTGrad(op, grad):
     print(op)
     if (grad.dtype == tf.complex64):
         size = tf.cast(tf.shape(grad)[1], tf.float32)
-        return (sequential_batch_ifft(grad, op.attr("compute_size"])) *
+        return (sequential_batch_ifft(grad, op.attr("compute_size")) *
             tf.complex(size, 0.))
     else:
         size = tf.cast(tf.shape(grad)[1], tf.float64)
-        return (sequential_batch_ifft(grad, op.attr("compute_size"])) *
+        return (sequential_batch_ifft(grad, op.attr("compute_size")) *
             tf.complex(size, tf.zeros([], tf.float64)))
 
 @ops.RegisterGradient("SequentialBatchIFFT")
